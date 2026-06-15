@@ -1,0 +1,3 @@
+# policy-mcp-server 运行依赖
+# 仅依赖官方 MCP Python SDK（FastMCP 风格），与 topology-mcp-server 保持一致
+mcp>=1.2.0

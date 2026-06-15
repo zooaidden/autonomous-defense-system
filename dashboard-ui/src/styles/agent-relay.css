@@ -1,0 +1,203 @@
+/* AgentRelayProgress styles. Designed to read well on both wide screens
+   (horizontal row) and narrow phones (auto-wraps into rows of nodes). */
+
+.agent-relay {
+  position: relative;
+  margin: 18px 0 24px;
+  padding: 14px 8px 28px;
+}
+
+.agent-relay-track {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: calc(14px + 26px); /* aligned with the center of medium nodes */
+  height: 2px;
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.0), rgba(34, 211, 238, 0.25), rgba(94, 234, 212, 0.0));
+  z-index: 0;
+}
+
+.agent-relay-list {
+  position: relative;
+  z-index: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.agent-relay-item {
+  flex: 1 1 0;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 4px;
+}
+
+.agent-relay-node {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
+  filter: grayscale(0.4);
+  transition: all 0.2s ease;
+}
+.agent-relay-sm .agent-relay-node { width: 42px; height: 42px; font-size: 18px; }
+.agent-relay-lg .agent-relay-node { width: 60px; height: 60px; font-size: 26px; }
+
+.agent-relay-node.tone-pending {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.35);
+  filter: grayscale(0.5) opacity(0.75);
+}
+.agent-relay-node.tone-active {
+  border-color: var(--accent);
+  color: #e0fbff;
+  filter: none;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(94, 234, 212, 0.12));
+  box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.14), 0 12px 24px -10px rgba(34, 211, 238, 0.65);
+}
+.agent-relay-node.tone-done {
+  border-color: #5eead4;
+  color: #5eead4;
+  filter: none;
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.15), rgba(34, 211, 238, 0.06));
+  box-shadow: 0 0 0 3px rgba(94, 234, 212, 0.18);
+}
+.agent-relay-node.tone-fail {
+  border-color: #fda4af;
+  color: #fda4af;
+  filter: none;
+  background: linear-gradient(135deg, rgba(248, 113, 113, 0.18), rgba(70, 13, 28, 0.45));
+  animation: agent-relay-shake 0.6s ease-in-out 1;
+}
+.agent-relay-node.tone-skip {
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #fbbf24;
+  filter: none;
+  background: rgba(120, 53, 15, 0.18);
+}
+@keyframes agent-relay-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.agent-relay-node-glyph {
+  line-height: 1;
+}
+.agent-relay-node-mark {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background: var(--panel-deep);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1.5px solid var(--bg);
+}
+.agent-relay-node-mark.mark-done { color: #061021; background: #5eead4; }
+.agent-relay-node-mark.mark-fail { color: #fff; background: #fda4af; }
+
+.agent-relay-pulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 211, 238, 0.4);
+  animation: agent-relay-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes agent-relay-pulse {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+.agent-relay-label {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  min-height: 32px;
+}
+.agent-relay-label-main {
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+.agent-relay-label-meta {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.agent-relay-connector {
+  position: absolute;
+  top: calc(14px + 26px - 1px);
+  left: calc(50% + 26px);
+  right: calc(-50% + 26px);
+  height: 3px;
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 3px;
+  overflow: hidden;
+  z-index: -1;
+}
+.agent-relay-sm .agent-relay-connector { top: calc(14px + 21px - 1px); left: calc(50% + 21px); right: calc(-50% + 21px); }
+.agent-relay-lg .agent-relay-connector { top: calc(14px + 30px - 1px); left: calc(50% + 30px); right: calc(-50% + 30px); }
+
+.agent-relay-connector.is-filled {
+  background: linear-gradient(90deg, #22d3ee, #5eead4);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.4);
+}
+.agent-relay-connector.is-active {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.6), rgba(94, 234, 212, 0.2));
+}
+
+.agent-relay-particle {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #cffafe, rgba(34, 211, 238, 0));
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.8);
+  opacity: 0;
+}
+.agent-relay-connector.is-active .agent-relay-particle {
+  opacity: 1;
+  animation: agent-relay-particle 1.4s linear infinite;
+}
+@keyframes agent-relay-particle {
+  0% { left: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Compact layout for FAB / cards (less padding, smaller labels). */
+.agent-relay-sm {
+  margin: 8px 0 14px;
+  padding: 4px 4px 14px;
+}
+.agent-relay-sm .agent-relay-label { min-height: 26px; }
+.agent-relay-sm .agent-relay-label-main { font-size: 11px; }
+.agent-relay-sm .agent-relay-label-meta { font-size: 10px; }

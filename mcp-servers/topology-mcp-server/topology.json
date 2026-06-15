@@ -1,0 +1,190 @@
+{
+  "metadata": {
+    "name": "autonomous-defense-system mock topology",
+    "version": "0.1.0",
+    "generated_at": "2026-04-28",
+    "description": "供 topology-mcp-server 使用的四区域模拟网络拓扑，用于多智能体决策与策略影响评估。"
+  },
+  "zones": [
+    { "id": "DMZ", "description": "对外暴露的接入与网关层" },
+    { "id": "Internal", "description": "内部应用服务层（业务逻辑、消息中间件）" },
+    { "id": "Database", "description": "数据存储层，仅允许应用层与堡垒机访问" },
+    { "id": "Management", "description": "运维与堡垒机管理面" },
+    {
+      "id": "Sandbox",
+      "description": "用于演示自动执行闭环的低风险隔离测试区"
+    }
+  ],
+  "assets": [
+    {
+      "asset_id": "dmz-web-01",
+      "name": "web-gateway",
+      "ip": "10.10.1.10",
+      "zone": "DMZ",
+      "role": "web_gateway",
+      "criticality": "HIGH",
+      "services": ["nginx", "tls-termination"],
+      "tags": ["edge", "public-facing"]
+    },
+    {
+      "asset_id": "dmz-api-01",
+      "name": "api-gateway",
+      "ip": "10.10.1.11",
+      "zone": "DMZ",
+      "role": "api_gateway",
+      "criticality": "HIGH",
+      "services": ["envoy", "oauth-proxy"],
+      "tags": ["edge", "public-facing"]
+    },
+    {
+      "asset_id": "app-payment-01",
+      "name": "payment-service",
+      "ip": "10.20.2.10",
+      "zone": "Internal",
+      "role": "business_service",
+      "criticality": "CRITICAL",
+      "services": ["spring-boot", "java-21"],
+      "tags": ["pci", "payment", "revenue-critical"]
+    },
+    {
+      "asset_id": "app-auth-01",
+      "name": "auth-service",
+      "ip": "10.20.2.11",
+      "zone": "Internal",
+      "role": "identity_service",
+      "criticality": "CRITICAL",
+      "services": ["keycloak", "oidc"],
+      "tags": ["identity", "trust-anchor"]
+    },
+    {
+      "asset_id": "app-order-01",
+      "name": "order-service",
+      "ip": "10.20.2.12",
+      "zone": "Internal",
+      "role": "business_service",
+      "criticality": "HIGH",
+      "services": ["spring-boot"],
+      "tags": ["business"]
+    },
+    {
+      "asset_id": "app-inventory-01",
+      "name": "inventory-service",
+      "ip": "10.20.2.13",
+      "zone": "Internal",
+      "role": "business_service",
+      "criticality": "MEDIUM",
+      "services": ["nodejs"],
+      "tags": ["business"]
+    },
+    {
+      "asset_id": "svc-broker-01",
+      "name": "kafka-broker",
+      "ip": "10.20.3.10",
+      "zone": "Internal",
+      "role": "message_broker",
+      "criticality": "HIGH",
+      "services": ["kafka-3"],
+      "tags": ["middleware", "fan-out"]
+    },
+    {
+      "asset_id": "db-primary-01",
+      "name": "postgres-primary",
+      "ip": "10.30.1.10",
+      "zone": "Database",
+      "role": "rdbms_primary",
+      "criticality": "CRITICAL",
+      "services": ["postgresql-15"],
+      "tags": ["data", "primary", "rpo-zero"]
+    },
+    {
+      "asset_id": "db-replica-01",
+      "name": "postgres-replica",
+      "ip": "10.30.1.11",
+      "zone": "Database",
+      "role": "rdbms_replica",
+      "criticality": "HIGH",
+      "services": ["postgresql-15"],
+      "tags": ["data", "replica", "read-only"]
+    },
+    {
+      "asset_id": "db-analytics-01",
+      "name": "clickhouse",
+      "ip": "10.30.2.10",
+      "zone": "Database",
+      "role": "olap",
+      "criticality": "MEDIUM",
+      "services": ["clickhouse"],
+      "tags": ["analytics"]
+    },
+    {
+      "asset_id": "mgmt-bastion-01",
+      "name": "bastion-host",
+      "ip": "10.40.1.10",
+      "zone": "Management",
+      "role": "bastion",
+      "criticality": "HIGH",
+      "services": ["openssh"],
+      "tags": ["mgmt", "human-access"]
+    },
+    {
+      "asset_id": "mgmt-ci-01",
+      "name": "ci-runner",
+      "ip": "10.40.1.20",
+      "zone": "Management",
+      "role": "ci_cd",
+      "criticality": "MEDIUM",
+      "services": ["gitlab-runner"],
+      "tags": ["mgmt", "ci"]
+    },
+    {
+      "asset_id": "demo-edge-01",
+      "name": "demo-edge",
+      "ip": "10.99.1.10",
+      "zone": "Sandbox",
+      "role": "edge_test",
+      "criticality": "LOW",
+      "services": ["nginx"],
+      "tags": ["demo", "sandbox", "low-risk"]
+    },
+    {
+      "asset_id": "demo-test-api-01",
+      "name": "demo-test-api",
+      "ip": "10.99.1.20",
+      "zone": "Sandbox",
+      "role": "test_api",
+      "criticality": "LOW",
+      "services": ["demo-api"],
+      "tags": ["demo", "sandbox", "low-risk"]
+    }
+  ],
+  "edges": [
+    { "from": "dmz-web-01", "to": "dmz-api-01", "protocol": "HTTP", "port": 8080, "direction": "outbound", "allowed": true },
+    { "from": "dmz-api-01", "to": "app-payment-01", "protocol": "HTTPS", "port": 8443, "direction": "outbound", "allowed": true },
+    { "from": "dmz-api-01", "to": "app-auth-01", "protocol": "HTTPS", "port": 8443, "direction": "outbound", "allowed": true },
+    { "from": "dmz-api-01", "to": "app-order-01", "protocol": "HTTPS", "port": 8443, "direction": "outbound", "allowed": true },
+    { "from": "app-payment-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "app-payment-01", "to": "svc-broker-01", "protocol": "TCP", "port": 9092, "direction": "outbound", "allowed": true },
+    { "from": "app-auth-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "app-order-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "app-order-01", "to": "app-inventory-01", "protocol": "HTTP", "port": 8080, "direction": "outbound", "allowed": true },
+    { "from": "app-order-01", "to": "svc-broker-01", "protocol": "TCP", "port": 9092, "direction": "outbound", "allowed": true },
+    { "from": "app-inventory-01", "to": "db-replica-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "svc-broker-01", "to": "db-analytics-01", "protocol": "TCP", "port": 9000, "direction": "outbound", "allowed": true },
+    { "from": "db-primary-01", "to": "db-replica-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "mgmt-bastion-01", "to": "app-payment-01", "protocol": "SSH", "port": 22, "direction": "outbound", "allowed": true },
+    { "from": "mgmt-bastion-01", "to": "app-auth-01", "protocol": "SSH", "port": 22, "direction": "outbound", "allowed": true },
+    { "from": "mgmt-bastion-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": true },
+    { "from": "mgmt-ci-01", "to": "app-payment-01", "protocol": "HTTPS", "port": 443, "direction": "outbound", "allowed": true },
+    { "from": "mgmt-ci-01", "to": "app-order-01", "protocol": "HTTPS", "port": 443, "direction": "outbound", "allowed": true },
+    { "from": "dmz-web-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": false },
+    { "from": "app-inventory-01", "to": "db-primary-01", "protocol": "TCP", "port": 5432, "direction": "outbound", "allowed": false },
+    {
+      "from": "demo-edge-01",
+      "to": "demo-test-api-01",
+      "protocol": "HTTP",
+      "port": 8080,
+      "direction": "outbound",
+      "allowed": true
+    }
+  ]
+}

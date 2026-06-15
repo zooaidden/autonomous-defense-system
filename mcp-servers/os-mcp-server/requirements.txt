@@ -1,0 +1,6 @@
+# os-mcp-server runtime dependencies.
+# Kept identical in spirit to topology-mcp-server / policy-mcp-server: the
+# only required dependency is the official MCP Python SDK (FastMCP style).
+# Everything else (subprocess, /proc parsing) uses the Python standard
+# library so this server runs unchanged on Kylin V10 and any vanilla CPython.
+mcp>=1.2.0

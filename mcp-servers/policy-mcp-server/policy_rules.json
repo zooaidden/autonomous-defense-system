@@ -1,0 +1,143 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "autonomous-defense-policy-rules",
+    "description": "Policy & business-impact rule set used by policy-mcp-server",
+    "updatedAt": "2026-04-28"
+  },
+  "critical_assets": [
+    {
+      "asset_id": "db-primary-01",
+      "ip": "10.30.1.10",
+      "criticality": "critical",
+      "category": "database",
+      "zone": "Database"
+    },
+    {
+      "asset_id": "db-replica-01",
+      "ip": "10.30.1.11",
+      "criticality": "critical",
+      "category": "database",
+      "zone": "Database"
+    },
+    {
+      "asset_id": "app-payment-01",
+      "ip": "10.20.1.10",
+      "criticality": "critical",
+      "category": "application",
+      "zone": "Internal"
+    },
+    {
+      "asset_id": "app-auth-01",
+      "ip": "10.20.1.11",
+      "criticality": "high",
+      "category": "application",
+      "zone": "Internal"
+    },
+    {
+      "asset_id": "svc-broker-01",
+      "ip": "10.20.1.20",
+      "criticality": "high",
+      "category": "messaging",
+      "zone": "Internal"
+    },
+    {
+      "asset_id": "dmz-api-01",
+      "ip": "10.10.1.20",
+      "criticality": "high",
+      "category": "gateway",
+      "zone": "DMZ"
+    }
+  ],
+  "production_paths": [
+    {
+      "name": "DMZ_TO_DATABASE",
+      "from_zone": "DMZ",
+      "to_zone": "Database",
+      "description": "DMZ ingress 流量经 app 层访问数据库"
+    },
+    {
+      "name": "INTERNAL_TO_DATABASE",
+      "from_zone": "Internal",
+      "to_zone": "Database",
+      "description": "Internal 服务直接访问数据库"
+    }
+  ],
+  "high_risk_actions": [
+    "BLOCK_IP",
+    "BLOCK_DOMAIN",
+    "ISOLATE_POD",
+    "ISOLATE_HOST",
+    "RESTRICT_EGRESS",
+    "DISABLE_ACCOUNT",
+    "REVOKE_TOKEN",
+    "APPLY_FIREWALL_RULE"
+  ],
+  "limits": {
+    "k8s_min_replicas": 2,
+    "ttl_min_seconds": 60,
+    "ttl_max_seconds": 86400
+  },
+  "rules": [
+    {
+      "id": "RULE-001",
+      "name": "no_full_block_on_critical_database",
+      "severity": "critical",
+      "description": "Critical 数据库资产不能被全量阻断（BLOCK_IP / ISOLATE_HOST / ISOLATE_POD）；必须配合 ingress_only / allowlistedFlows 等收敛参数。",
+      "applies_to_actions": ["BLOCK_IP", "ISOLATE_HOST", "ISOLATE_POD"],
+      "remediation": "在 parameters 中加入 scope=ingress_only 或 allowlistedFlows=['DMZ_TO_DATABASE'/'INTERNAL_TO_DATABASE']，或改用 RESTRICT_EGRESS / APPLY_FIREWALL_RULE 收敛动作"
+    },
+    {
+      "id": "RULE-002",
+      "name": "production_path_block_requires_ttl",
+      "severity": "high",
+      "description": "影响 DMZ→Database 或 Internal→Database 等生产业务路径的阻断动作必须设置合法 TTL（60s ≤ ttl ≤ 86400s）。",
+      "applies_to_actions": ["BLOCK_IP", "BLOCK_DOMAIN", "ISOLATE_POD", "ISOLATE_HOST", "RESTRICT_EGRESS", "APPLY_FIREWALL_RULE"],
+      "remediation": "在 strategy 顶层补充 ttl 或 ttl_minutes（建议 1800~7200 秒）"
+    },
+    {
+      "id": "RULE-003",
+      "name": "high_risk_action_requires_rollback",
+      "severity": "high",
+      "description": "高风险动作必须包含 rollback_plan，且 steps 与 triggerCondition 都不能为空。",
+      "applies_to_actions": ["BLOCK_IP", "BLOCK_DOMAIN", "ISOLATE_POD", "ISOLATE_HOST", "RESTRICT_EGRESS", "DISABLE_ACCOUNT", "REVOKE_TOKEN", "APPLY_FIREWALL_RULE"],
+      "remediation": "补充 rollbackPlan.steps（至少 1 步）与 triggerCondition（如 false_positive_confirmed_or_business_impact_detected）"
+    },
+    {
+      "id": "RULE-004",
+      "name": "k8s_scaling_min_replicas",
+      "severity": "medium",
+      "description": "K8s 扩缩容动作（SCALE_PROTECTION 或带 replicas 参数的 action）的目标副本数不能低于 limits.k8s_min_replicas。",
+      "applies_to_actions": ["SCALE_PROTECTION"],
+      "remediation": "提升 parameters.replicas 到至少 limits.k8s_min_replicas"
+    },
+    {
+      "id": "RULE-005",
+      "name": "waf_block_must_specify_target",
+      "severity": "medium",
+      "description": "WAF block/deny 规则必须在 parameters 中指定 path / ip / user_agent / rule_id 至少一项，不能产生过宽的封禁。",
+      "applies_to_actions": ["APPLY_WAF_RULE"],
+      "block_actions": ["block", "deny"],
+      "required_any_of": ["path", "ip", "user_agent", "rule_id", "pattern"],
+      "remediation": "在 parameters 中至少指定 path、ip、user_agent、pattern 或 rule_id 之一"
+    },
+    {
+      "id": "RULE-006",
+      "name": "firewall_deny_must_specify_5tuple",
+      "severity": "medium",
+      "description": "Firewall deny/drop 规则必须同时指定 source、destination、port、protocol，避免大范围阻断。",
+      "applies_to_actions": ["APPLY_FIREWALL_RULE"],
+      "block_actions": ["deny", "drop", "block"],
+      "required_all_of": ["source", "destination", "port", "protocol"],
+      "remediation": "在 parameters 中补齐 source、destination、port、protocol 四元组"
+    },
+    {
+      "id": "RULE-007",
+      "name": "critical_asset_action_requires_human_approval",
+      "severity": "critical",
+      "description": "对 criticality=critical 的资产执行任何强制动作时，必须显式声明 human_approval=true（顶层、metadata 或 scope 任意一处）。",
+      "applies_to_actions": ["BLOCK_IP", "BLOCK_DOMAIN", "ISOLATE_POD", "ISOLATE_HOST", "RESTRICT_EGRESS", "DISABLE_ACCOUNT", "REVOKE_TOKEN", "APPLY_FIREWALL_RULE"],
+      "remediation": "在 strategy.metadata.human_approval=true 或 strategy.requires_human_approval=true 中显式声明"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: acd-orchestration
+
+# agent-brain（集成后的 LangGraph + MVP /debate 契约）
+agent:
+  service:
+    base-url: http://localhost:8001
+
+app:
+  cors:
+    allowed-origins: ${ACD_ORCHESTRATION_CORS_ALLOWED_ORIGINS:*}

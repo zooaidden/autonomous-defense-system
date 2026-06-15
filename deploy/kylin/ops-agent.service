@@ -1,0 +1,96 @@
+# =============================================================================
+# systemd unit for agent-brain running as a least-privilege account.
+# =============================================================================
+#
+# Prerequisites (run as root once on the Kylin host):
+#
+#   useradd --system --create-home --shell /usr/sbin/nologin ops-agent
+#   install -d -o ops-agent -g ops-agent /var/log/autonomous-defense/audit
+#   chown -R ops-agent:ops-agent /opt/autonomous-defense-system
+#
+# This service file:
+#   * Runs agent-brain as `ops-agent` (NOT root); LeastPrivilegeExecutor
+#     records uid/gid/cwd alongside every command in the audit log so
+#     downstream forensics can confirm the runtime identity.
+#   * Sets AGENT_BRAIN_ROOT_POLICY=refuse so a misconfigured deployment
+#     that tries to run as root simply exits.
+#   * Applies systemd hardening so even if the executor were bypassed the
+#     OS itself blocks writes to /etc, /boot, /usr.
+#
+# Install:
+#
+#   sudo cp deploy/kylin/ops-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ops-agent.service
+#
+# Logs: journalctl -u ops-agent -f
+# =============================================================================
+
+[Unit]
+Description=Autonomous Defense System - agent-brain (least-privilege OPS Agent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ops-agent
+Group=ops-agent
+WorkingDirectory=/opt/autonomous-defense-system/agent-brain
+
+# Environment: copy deploy/kylin/.env to /etc/autonomous-defense/agent-brain.env
+# and chmod 600 it so only ops-agent can read the secrets.
+EnvironmentFile=-/etc/autonomous-defense/agent-brain.env
+Environment=AGENT_BRAIN_FAILURE_MODE=strict
+Environment=AGENT_BRAIN_ROOT_POLICY=refuse
+Environment=WORKFLOW_GUARD_STRICT=true
+Environment=ACTUATOR_MCP_GUARD_ENABLED=true
+Environment=ACTUATOR_DEFAULT_DRY_RUN=true
+
+ExecStart=/opt/autonomous-defense-system/agent-brain/.venv/bin/python \
+          -m uvicorn agent_brain.main:app --host 0.0.0.0 --port 8001
+
+# ── KylinSec MAC integration ───────────────────────────────────────────
+# On Kylin V11 the system administrator should pre-create a KylinSec
+# policy that assigns ``ops_agent_t`` to the ops-agent user. When
+# KylinSec is enforcing, the kernel-level MAC will block writes to
+# ``etc_t``, ``shadow_t``, ``boot_t``, ``modules_object_t`` etc.
+# even if the application-layer sandbox is somehow bypassed.
+# See: /etc/kylinsec/policy/  and  `kylinsec-status`
+
+# ── systemd sandbox (cross-architecture, Kylin V11 fully supports) ──
+# These directives apply regardless of CPU architecture (x86_64 /
+# LoongArch64 / aarch64). systemd internally translates @-group
+# syscall filters to the correct architecture-specific numbers.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/autonomous-defense /opt/autonomous-defense-system/agent-brain/data
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictNamespaces=true
+PrivateDevices=true
+ProtectProc=ptraceable
+
+# ── Architecture-neutral syscall filter ────────────────────────────────
+# ``@default``, ``@signal``, ``@timer``, ``@basic-io`` cover the ~30
+# syscalls needed by a Python uvicorn worker. The ``~@…`` lines
+# blacklist entire groups. systemd maps these to the correct syscall
+# numbers for LoongArch64 / x86_64 / aarch64 automatically.
+SystemCallFilter=@default @signal @timer @basic-io
+SystemCallFilter=~@privileged ~@mount ~@reboot ~@swap ~@raw-io ~@keyring ~@module
+
+# ── Restrict /proc visibility ─────────────────────────────────────────
+# ``ptraceable`` is the most restrictive setting that still allows
+# /proc/self and /proc/<pid> entries the agent legitimately needs.
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

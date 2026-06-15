@@ -1,0 +1,17 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: actuator-service
+
+logging:
+  level:
+    root: INFO
+    com.autonomous.defense.actuator: INFO
+
+app:
+  rollback:
+    scheduler-enabled: true
+    poll-interval-ms: 5000
+

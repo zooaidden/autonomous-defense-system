@@ -1,0 +1,4 @@
+# Runtime artifacts produced by start-all.sh / stop-all.sh.
+# Logs and pid files must never be committed.
+run/
+.env
