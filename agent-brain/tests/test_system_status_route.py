@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from agent_brain.main import app
+from agent_brain.main import _probe_service_status, app
 
 
 class SystemStatusRouteTests(unittest.TestCase):
@@ -55,6 +56,37 @@ class SystemStatusRouteTests(unittest.TestCase):
         body = self.client.get("/system/status").json()
         names = [s["name"] for s in body["services"]]
         self.assertIn("agent-brain", names)
+
+    def test_services_include_probe_statuses(self) -> None:
+        with patch("agent_brain.main._probe_service_status", return_value="up"):
+            body = self.client.get("/system/status").json()
+        by_name = {s["name"]: s for s in body["services"]}
+        for name in (
+            "defense-gateway",
+            "actuator-service",
+            "formal-verifier",
+            "dashboard-ui",
+        ):
+            self.assertEqual(by_name[name]["status"], "up")
+            self.assertIn("url", by_name[name])
+
+    def test_actuator_mcp_reflects_in_process_guard(self) -> None:
+        body = self.client.get("/system/status").json()
+        actuator = body["mcpClients"]["actuator"]
+        self.assertTrue(actuator["enabled"])
+        self.assertEqual(actuator["mode"], "in-process")
+        self.assertIn("actuator-mcp-server", actuator["serverPath"])
+        self.assertIn("execute_strategy", actuator["tools"])
+
+    def test_probe_service_status_maps_http_outcomes(self) -> None:
+        class Response:
+            def __init__(self, status_code: int) -> None:
+                self.status_code = status_code
+
+        with patch("agent_brain.main.httpx.get", return_value=Response(200)):
+            self.assertEqual(_probe_service_status("http://svc", "/health"), "up")
+        with patch("agent_brain.main.httpx.get", return_value=Response(404)):
+            self.assertEqual(_probe_service_status("http://svc", "/health"), "down")
 
 
 if __name__ == "__main__":  # pragma: no cover

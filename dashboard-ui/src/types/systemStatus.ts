@@ -17,6 +17,7 @@ export interface SystemServiceEntry {
   name: string;
   port: number;
   status: "up" | "down" | "unknown" | string;
+  url?: string;
 }
 
 export interface SystemMcpClient {

@@ -29,8 +29,8 @@ const MOCK_STATUS: SystemStatusResponse = {
   services: [
     { name: "agent-brain", port: 8001, status: "up" },
     { name: "defense-gateway", port: 8080, status: "unknown" },
-    { name: "actuator-service", port: 8002, status: "unknown" },
-    { name: "formal-verifier", port: 8081, status: "unknown" },
+    { name: "actuator-service", port: 8081, status: "unknown" },
+    { name: "formal-verifier", port: 8002, status: "unknown" },
     { name: "dashboard-ui", port: 5173, status: "unknown" },
   ],
   mcpClients: {
