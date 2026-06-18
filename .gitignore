@@ -7,27 +7,24 @@
 **/.venv/
 **/venv/
 **/*.egg-info/
-
 # Node
 **/node_modules/
 **/dist/
 *.tsbuildinfo
-
 # IDE
 .idea/
 .vscode/
-
 # OS
 .DS_Store
 Thumbs.db
-
 # Env
 .env
-
 # Per-request audit JSON snapshots (written by AuditLogger).
 # Override via AUDIT_LOG_DIR; default is <repo_root>/logs/audit/.
 logs/
-
 # Runtime data / audit trails (generated at runtime, not source)
 **/data/
-
+# Local secrets
+.env.real
+# Runtime/debug logs
+tmux-*.log
