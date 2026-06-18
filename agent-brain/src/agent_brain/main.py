@@ -6,6 +6,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
@@ -237,24 +238,43 @@ def system_status() -> dict:
     """Return host platform metadata + MCP catalogue for the dashboard.
 
     This route is the data source for the ``/system`` page in the
-    dashboard UI. It does not perform any health probing of sibling
-    services (defense-gateway, formal-verifier, actuator-service) to
-    keep latency predictable; the UI reports those as ``unknown`` and
-    the operator can drill in with the dedicated health endpoints if
-    needed.
+    dashboard UI. It performs short, bounded health probes of sibling
+    services so operators can distinguish an actually offline service
+    from a merely unconfigured one without leaving the page.
     """
     pc = _orchestrator_policy_client
     tc = _topology_client_probe
     oc = _os_client_probe
     kc = _kylinsec_client
+    actuator_client = orchestrator.actuator_client
     return {
         "platform": _read_platform_info(),
         "services": [
             {"name": "agent-brain", "port": 8001, "status": "up"},
-            {"name": "defense-gateway", "port": 8080, "status": "unknown"},
-            {"name": "actuator-service", "port": 8081, "status": "unknown"},
-            {"name": "formal-verifier", "port": 8002, "status": "unknown"},
-            {"name": "dashboard-ui", "port": 5173, "status": "unknown"},
+            _service_entry(
+                "defense-gateway",
+                8080,
+                _env_base_url("DEFENSE_GATEWAY_BASE_URL", "http://localhost:8080"),
+                "/api/health",
+            ),
+            _service_entry(
+                "actuator-service",
+                8081,
+                actuator_client.base_url,
+                "/api/health",
+            ),
+            _service_entry(
+                "formal-verifier",
+                8002,
+                _env_base_url("FORMAL_VERIFIER_BASE_URL", "http://localhost:8002"),
+                "/health",
+            ),
+            _service_entry(
+                "dashboard-ui",
+                5173,
+                _env_base_url("DASHBOARD_UI_BASE_URL", "http://localhost:5173"),
+                "/",
+            ),
         ],
         "mcpClients": {
             "topology": {
@@ -299,10 +319,23 @@ def system_status() -> dict:
                 ],
             },
             "actuator": {
-                "enabled": False,
-                "mode": "http-fallback",
-                "serverPath": None,
-                "note": "actuator-mcp-server packaged but agent-brain uses HTTP actuator client in /workflow/run",
+                "enabled": actuator_client.guard_enabled,
+                "mode": "in-process" if actuator_client.guard_enabled else "disabled",
+                "serverPath": _scrub_home(
+                    str(_repo_root() / "mcp-servers" / "actuator-mcp-server")
+                ),
+                "tools": [
+                    "execute_strategy",
+                    "rollback_strategy",
+                    "get_execution_status",
+                    "list_executions",
+                ],
+                "note": (
+                    "Actuator MCP safety contract is enforced in-process by "
+                    "ActuatorClient before /workflow/run submits to actuator-service."
+                    if actuator_client.guard_enabled
+                    else "Disabled by ACTUATOR_MCP_GUARD_ENABLED=false."
+                ),
             },
             "kylinsec": {
                 "enabled": kc.enabled,
@@ -333,6 +366,47 @@ def system_status() -> dict:
             "directory": _scrub_home(str(_audit_logger.directory)),
         },
     }
+
+
+def _repo_root() -> Path:
+    """Return the repository root from this package file."""
+    return Path(__file__).resolve().parents[3]
+
+
+def _env_base_url(name: str, default: str) -> str:
+    """Read and normalize a service base URL environment variable."""
+    return (os.environ.get(name) or default).rstrip("/")
+
+
+def _service_entry(name: str, port: int, base_url: str, health_path: str) -> dict:
+    """Build a dashboard service entry with a bounded health probe."""
+    return {
+        "name": name,
+        "port": port,
+        "status": _probe_service_status(base_url, health_path),
+        "url": base_url,
+    }
+
+
+def _probe_service_status(base_url: str, health_path: str) -> str:
+    """Return ``up``/``down``/``unknown`` for a sibling service.
+
+    ``unknown`` is reserved for malformed or missing configuration. Network
+    errors and non-2xx HTTP responses are concrete ``down`` signals.
+    """
+    if not base_url:
+        return "unknown"
+    try:
+        url = f"{base_url.rstrip('/')}/{health_path.lstrip('/')}"
+    except AttributeError:
+        return "unknown"
+    try:
+        response = httpx.get(url, timeout=0.35)
+    except httpx.InvalidURL:
+        return "unknown"
+    except httpx.HTTPError:
+        return "down"
+    return "up" if 200 <= response.status_code < 400 else "down"
 
 
 def _read_platform_info() -> dict:
