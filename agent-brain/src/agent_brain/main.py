@@ -29,6 +29,7 @@ from agent_brain.models import SecurityEvent, Severity
 from agent_brain.models.ops_schemas import OpsChatRequest
 from agent_brain.integrations import OsMCPClient, PolicyMCPClient, TopologyMCPClient
 from agent_brain.integrations.kylinsec_client import KylinsecMCPClient
+from agent_brain.integrations.kafka_consumer import SecurityEventIngestWorker
 from agent_brain.integrations.os_client import is_mcp_sdk_installed as _os_mcp_sdk_installed
 from agent_brain.safety import (
     evaluate_system_config,
@@ -63,6 +64,14 @@ _WORKFLOW_GUARD_STRICT = (
     os.environ.get("WORKFLOW_GUARD_STRICT", "true").strip().lower()
     in {"1", "true", "yes", "on"}
 )
+_KAFKA_EVENT_INGEST_ENABLED = (
+    os.environ.get("ENABLE_KAFKA_EVENT_INGEST", "false").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
+_KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+_KAFKA_EVENT_TOPIC = os.environ.get("EVENT_TOPIC", "security.events")
+_KAFKA_EVENT_GROUP_ID = os.environ.get("AGENT_BRAIN_KAFKA_GROUP_ID", "agent-brain")
+_KAFKA_AUTO_OFFSET_RESET = os.environ.get("AGENT_BRAIN_KAFKA_AUTO_OFFSET_RESET", "latest")
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +120,21 @@ orchestrator = DebateOrchestrator(
     policy_client=_orchestrator_policy_client,
 )
 
+
+def _process_kafka_security_event(event: SecurityEvent) -> dict:
+    """Process one event sensed from Kafka using the existing workflow path."""
+    return orchestrator.process_event(event)
+
+
+_event_ingest_worker = SecurityEventIngestWorker(
+    enabled=_KAFKA_EVENT_INGEST_ENABLED,
+    bootstrap_servers=_KAFKA_BOOTSTRAP_SERVERS,
+    topic=_KAFKA_EVENT_TOPIC,
+    group_id=_KAFKA_EVENT_GROUP_ID,
+    auto_offset_reset=_KAFKA_AUTO_OFFSET_RESET,
+    event_handler=_process_kafka_security_event,
+)
+
 # OPS chat orchestrator - constructed at module-init so the route handler
 # stays cheap. Uses the same OS MCP client as /health probing (no extra
 # stdio process). The audit log is the process-wide singleton so every
@@ -128,6 +152,16 @@ _ops_orchestrator: OpsOrchestrator = OpsOrchestrator(
 # ingest a single self-contained snapshot. Lives in the audit package
 # alongside OpsAuditLog and is shared between /ops/chat and /workflow/run.
 _audit_logger: AuditLogger = get_default_audit_logger()
+
+
+@app.on_event("startup")
+def _start_event_ingest_worker() -> None:
+    _event_ingest_worker.start()
+
+
+@app.on_event("shutdown")
+def _stop_event_ingest_worker() -> None:
+    _event_ingest_worker.stop()
 
 
 def get_ops_orchestrator() -> OpsOrchestrator:
@@ -216,6 +250,7 @@ def health() -> dict:
             "executorEnabled": True,
             "note": "POST /ops/chat 自然语言运维入口；GET /ops/audit/{requestId} 回放审计链路。",
         },
+        "eventIngest": _event_ingest_worker.status(),
         # Per-request JSON snapshot writer; populates the auditFile field
         # on responses from /ops/chat and /workflow/run.
         "auditFile": {
@@ -231,6 +266,12 @@ def health() -> dict:
             "note": "麒麟安全框架 MCP 客户端；仅 /ops/chat 可选使用，不参与 /workflow/run。",
         },
     }
+
+
+@app.get("/events/ingest/status")
+def event_ingest_status() -> dict:
+    """Return Kafka-backed real-event awareness status for dashboard-ui."""
+    return _event_ingest_worker.status()
 
 
 @app.get("/system/status")
@@ -361,6 +402,7 @@ def system_status() -> dict:
             "systemConfigGuardEnabled": True,
             "intentValidatorEnabled": True,
         },
+        "eventIngest": _event_ingest_worker.status(),
         "auditFile": {
             "enabled": _audit_logger.enabled,
             "directory": _scrub_home(str(_audit_logger.directory)),

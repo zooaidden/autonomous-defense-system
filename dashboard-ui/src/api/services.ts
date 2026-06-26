@@ -1,7 +1,8 @@
-import { apiGet, apiGetActuator } from "./client";
+import { apiGet, apiGetActuator, apiGetAgentBrain } from "./client";
 import { USE_MOCK_DATA } from "./config";
 import { mockChainView, mockEvents, mockExecutions } from "../mock/data";
 import type { ChainView, ExecutionRecord, SecurityEvent } from "../types";
+import type { EventIngestStatus } from "../types/systemStatus";
 
 export async function fetchEvents(): Promise<SecurityEvent[]> {
   if (USE_MOCK_DATA) {
@@ -59,3 +60,13 @@ export async function fetchExecutions(): Promise<ExecutionRecord[]> {
   return apiGetActuator<ExecutionRecord[]>("/api/executions");
 }
 
+export async function fetchEventIngestStatus(): Promise<EventIngestStatus | null> {
+  if (USE_MOCK_DATA) {
+    return null;
+  }
+  try {
+    return await apiGetAgentBrain<EventIngestStatus>("/events/ingest/status");
+  } catch {
+    return null;
+  }
+}

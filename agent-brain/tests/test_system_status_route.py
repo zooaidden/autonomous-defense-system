@@ -17,7 +17,7 @@ class SystemStatusRouteTests(unittest.TestCase):
         resp = self.client.get("/system/status")
         self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
-        for key in ("platform", "services", "mcpClients", "executor", "guards", "auditFile"):
+        for key in ("platform", "services", "mcpClients", "executor", "guards", "auditFile", "eventIngest"):
             self.assertIn(key, body, msg=key)
 
     def test_platform_block_shape(self) -> None:
@@ -87,6 +87,14 @@ class SystemStatusRouteTests(unittest.TestCase):
             self.assertEqual(_probe_service_status("http://svc", "/health"), "up")
         with patch("agent_brain.main.httpx.get", return_value=Response(404)):
             self.assertEqual(_probe_service_status("http://svc", "/health"), "down")
+
+    def test_event_ingest_status_route_is_available_when_disabled(self) -> None:
+        resp = self.client.get("/events/ingest/status")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        body = resp.json()
+        self.assertFalse(body["enabled"])
+        self.assertFalse(body["running"])
+        self.assertEqual(body["topic"], "security.events")
 
 
 if __name__ == "__main__":  # pragma: no cover

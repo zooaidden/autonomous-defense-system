@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useShallow } from "zustand/react/shallow";
 import { EventTrendChart } from "../components/EventTrendChart";
+import { EventIngestNotice } from "../components/EventIngestNotice";
 import { MetricCard } from "../components/MetricCard";
 import { AgentRelayProgress } from "../components/AgentRelayProgress";
 import { Button } from "../ui/Button";
@@ -93,6 +94,8 @@ export function DashboardPage() {
           </Button>
         </div>
       </header>
+
+      <EventIngestNotice />
 
       {latestTask ? (
         <motion.article

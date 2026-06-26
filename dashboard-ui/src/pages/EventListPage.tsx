@@ -8,6 +8,7 @@ import { useShallow } from "zustand/react/shallow";
 import { fetchEvents } from "../api/services";
 import { Chip } from "../ui/Chip";
 import { EmptyState } from "../ui/EmptyState";
+import { EventIngestNotice } from "../components/EventIngestNotice";
 import {
   selectAllEvents,
   useEventStore,
@@ -39,6 +40,8 @@ export function EventListPage() {
           </p>
         </div>
       </header>
+
+      <EventIngestNotice />
 
       {!events.length ? (
         <EmptyState

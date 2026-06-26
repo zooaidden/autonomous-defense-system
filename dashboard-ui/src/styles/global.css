@@ -282,6 +282,43 @@ a {
 .dash-latest-task-head h3 { margin: 4px 0 0; font-size: 15px; color: #e0fbff; }
 .dash-latest-task-head p { margin: 2px 0 0; font-size: 12px; }
 
+.event-ingest-notice {
+  margin: 0 0 18px;
+}
+.event-ingest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.event-ingest-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.event-ingest-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+.event-ingest-grid strong {
+  color: #e0fbff;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.event-ingest-note,
+.event-ingest-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.event-ingest-note {
+  color: var(--muted);
+}
+.event-ingest-error {
+  color: #fda4af;
+}
+
 /* Event detail header */
 .evt-detail-head {
   display: flex;
@@ -1238,4 +1275,3 @@ a {
   max-height:280px;overflow:auto;
   white-space:pre-wrap;word-break:break-all;
 }
-

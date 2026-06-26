@@ -46,4 +46,19 @@ export interface SystemStatusResponse {
     enabled: boolean;
     directory: string;
   };
+  eventIngest?: EventIngestStatus;
+}
+
+export interface EventIngestStatus {
+  enabled: boolean;
+  running: boolean;
+  topic: string;
+  bootstrapServers: string;
+  groupId: string;
+  autoOffsetReset: string;
+  processedCount: number;
+  failedCount: number;
+  lastEventId: string | null;
+  lastProcessedAt: string | null;
+  lastError: string | null;
 }
