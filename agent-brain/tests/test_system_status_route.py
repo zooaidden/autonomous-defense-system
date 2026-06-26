@@ -17,7 +17,16 @@ class SystemStatusRouteTests(unittest.TestCase):
         resp = self.client.get("/system/status")
         self.assertEqual(resp.status_code, 200, resp.text)
         body = resp.json()
-        for key in ("platform", "services", "mcpClients", "executor", "guards", "auditFile", "eventIngest"):
+        for key in (
+            "platform",
+            "services",
+            "mcpClients",
+            "executor",
+            "guards",
+            "auditFile",
+            "eventIngest",
+            "osTopologyProbe",
+        ):
             self.assertIn(key, body, msg=key)
 
     def test_platform_block_shape(self) -> None:
@@ -95,6 +104,14 @@ class SystemStatusRouteTests(unittest.TestCase):
         self.assertFalse(body["enabled"])
         self.assertFalse(body["running"])
         self.assertEqual(body["topic"], "security.events")
+
+    def test_os_topology_probe_status_route_is_available(self) -> None:
+        resp = self.client.get("/topology/os-probe/status")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        body = resp.json()
+        self.assertTrue(body["manualEnabled"])
+        self.assertIn("autoEnabled", body)
+        self.assertIn("dynamicTopologyPath", body)
 
 
 if __name__ == "__main__":  # pragma: no cover

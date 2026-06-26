@@ -1,8 +1,13 @@
 import { apiGet, apiGetActuator, apiGetAgentBrain } from "./client";
-import { USE_MOCK_DATA } from "./config";
+import { AGENT_BRAIN_BASE_URL, USE_MOCK_DATA } from "./config";
 import { mockChainView, mockEvents, mockExecutions } from "../mock/data";
 import type { ChainView, ExecutionRecord, SecurityEvent } from "../types";
-import type { EventIngestStatus } from "../types/systemStatus";
+import type {
+  EventIngestStatus,
+  OsKnowledgeGraph,
+  OsTopologyProbeRunResponse,
+  OsTopologyProbeStatus,
+} from "../types/systemStatus";
 
 export async function fetchEvents(): Promise<SecurityEvent[]> {
   if (USE_MOCK_DATA) {
@@ -66,6 +71,39 @@ export async function fetchEventIngestStatus(): Promise<EventIngestStatus | null
   }
   try {
     return await apiGetAgentBrain<EventIngestStatus>("/events/ingest/status");
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchOsTopologyProbeStatus(): Promise<OsTopologyProbeStatus | null> {
+  if (USE_MOCK_DATA) {
+    return null;
+  }
+  try {
+    return await apiGetAgentBrain<OsTopologyProbeStatus>("/topology/os-probe/status");
+  } catch {
+    return null;
+  }
+}
+
+export async function runOsTopologyProbe(): Promise<OsTopologyProbeRunResponse> {
+  const response = await fetch(`${AGENT_BRAIN_BASE_URL}/topology/os-probe/run`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `OS topology probe failed: HTTP ${response.status}`);
+  }
+  return (await response.json()) as OsTopologyProbeRunResponse;
+}
+
+export async function fetchOsKnowledgeGraph(): Promise<OsKnowledgeGraph | null> {
+  if (USE_MOCK_DATA) {
+    return null;
+  }
+  try {
+    return await apiGetAgentBrain<OsKnowledgeGraph>("/topology/os-probe/knowledge-graph");
   } catch {
     return null;
   }

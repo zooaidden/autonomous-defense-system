@@ -1084,3 +1084,89 @@
   color: var(--muted);
   font-size: 13px;
 }
+
+/* ----- OS dynamic topology probe ----- */
+.os-topology-panel {
+  margin: 0 0 18px;
+}
+.os-probe-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.os-probe-kpis > div {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(7, 11, 23, 0.32);
+}
+.os-probe-kpis span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.os-probe-kpis strong {
+  color: #e0fbff;
+  font-size: 13px;
+}
+.os-probe-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.os-probe-meta code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: #bfdbfe;
+  font-size: 12px;
+}
+.os-probe-error {
+  margin: 10px 0 0;
+  color: #fda4af;
+  font-size: 12px;
+}
+.os-graph-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.os-graph-preview section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+.os-graph-preview h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #8be9fd;
+}
+.os-graph-preview ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.os-graph-preview li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+.os-graph-preview li span {
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.os-graph-preview li code {
+  color: #c4b5fd;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  text-align: right;
+}

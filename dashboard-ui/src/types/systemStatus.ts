@@ -47,6 +47,7 @@ export interface SystemStatusResponse {
     directory: string;
   };
   eventIngest?: EventIngestStatus;
+  osTopologyProbe?: OsTopologyProbeStatus;
 }
 
 export interface EventIngestStatus {
@@ -61,4 +62,44 @@ export interface EventIngestStatus {
   lastEventId: string | null;
   lastProcessedAt: string | null;
   lastError: string | null;
+}
+
+export interface OsTopologyProbeStatus {
+  manualEnabled: boolean;
+  autoEnabled: boolean;
+  intervalSeconds: number;
+  running: boolean;
+  lastProbeAt: string | null;
+  lastProbeMode: string | null;
+  lastError: string | null;
+  dynamicTopologyPath: string;
+  assetCount: number;
+  edgeCount: number;
+  knowledgeNodeCount: number;
+  knowledgeEdgeCount: number;
+}
+
+export interface OsKnowledgeGraph {
+  nodes: Array<{
+    id: string;
+    label: string;
+    type: string;
+    properties?: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    type: string;
+    properties?: Record<string, unknown>;
+  }>;
+}
+
+export interface OsTopologyProbeRunResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    status: OsTopologyProbeStatus;
+    topology?: unknown;
+    knowledgeGraph?: OsKnowledgeGraph;
+  };
 }

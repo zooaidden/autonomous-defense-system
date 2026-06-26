@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { AGENT_BRAIN_BASE_URL, USE_MOCK_DATA } from "../api/config";
+import { OsTopologyProbePanel } from "../components/OsTopologyProbePanel";
 import { Chip } from "../ui/Chip";
 import { toolLabelZh } from "../utils/humanReadable/describeMcp";
 import type {
@@ -94,6 +95,20 @@ const MOCK_STATUS: SystemStatusResponse = {
   auditFile: {
     enabled: true,
     directory: "~/autonomous-defense-system/logs/audit",
+  },
+  osTopologyProbe: {
+    manualEnabled: true,
+    autoEnabled: false,
+    intervalSeconds: 86400,
+    running: false,
+    lastProbeAt: null,
+    lastProbeMode: null,
+    lastError: null,
+    dynamicTopologyPath: "~/autonomous-defense-system/mcp-servers/topology-mcp-server/topology.dynamic.json",
+    assetCount: 0,
+    edgeCount: 0,
+    knowledgeNodeCount: 0,
+    knowledgeEdgeCount: 0,
   },
 };
 
@@ -246,6 +261,8 @@ export function SystemStatusPage() {
           ))}
         </div>
       </article>
+
+      <OsTopologyProbePanel initialStatus={data.osTopologyProbe} />
 
       <article className="panel-glow">
         <header className="ops-section-head">

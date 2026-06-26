@@ -46,6 +46,7 @@ from agent_brain.services.mvp_bridge import (
     run_mvp_debate_sync,
     sse_lines_from_stream,
 )
+from agent_brain.services.os_topology_probe import OsTopologyProbeManager
 
 app = FastAPI(title="agent-brain", version="0.2.0")
 
@@ -134,6 +135,7 @@ _event_ingest_worker = SecurityEventIngestWorker(
     auto_offset_reset=_KAFKA_AUTO_OFFSET_RESET,
     event_handler=_process_kafka_security_event,
 )
+_os_topology_probe = OsTopologyProbeManager()
 
 # OPS chat orchestrator - constructed at module-init so the route handler
 # stays cheap. Uses the same OS MCP client as /health probing (no extra
@@ -157,11 +159,13 @@ _audit_logger: AuditLogger = get_default_audit_logger()
 @app.on_event("startup")
 def _start_event_ingest_worker() -> None:
     _event_ingest_worker.start()
+    _os_topology_probe.start_auto()
 
 
 @app.on_event("shutdown")
 def _stop_event_ingest_worker() -> None:
     _event_ingest_worker.stop()
+    _os_topology_probe.stop_auto()
 
 
 def get_ops_orchestrator() -> OpsOrchestrator:
@@ -251,6 +255,7 @@ def health() -> dict:
             "note": "POST /ops/chat 自然语言运维入口；GET /ops/audit/{requestId} 回放审计链路。",
         },
         "eventIngest": _event_ingest_worker.status(),
+        "osTopologyProbe": _os_topology_probe.status(),
         # Per-request JSON snapshot writer; populates the auditFile field
         # on responses from /ops/chat and /workflow/run.
         "auditFile": {
@@ -272,6 +277,36 @@ def health() -> dict:
 def event_ingest_status() -> dict:
     """Return Kafka-backed real-event awareness status for dashboard-ui."""
     return _event_ingest_worker.status()
+
+
+@app.get("/topology/os-probe/status")
+def os_topology_probe_status() -> dict:
+    """Return dynamic OS topology probe status."""
+    return _os_topology_probe.status()
+
+
+@app.post("/topology/os-probe/run")
+async def run_os_topology_probe() -> dict:
+    """Manually probe the current OS/network environment and persist topology."""
+    return await _os_topology_probe.probe(mode="manual")
+
+
+@app.get("/topology/os-probe/topology")
+def os_topology_probe_topology() -> dict:
+    """Return the latest persisted dynamic topology, if any."""
+    topology = _os_topology_probe.load_stored_topology()
+    if topology is None:
+        raise HTTPException(status_code=404, detail="dynamic topology has not been generated")
+    return topology
+
+
+@app.get("/topology/os-probe/knowledge-graph")
+def os_topology_probe_knowledge_graph() -> dict:
+    """Return the latest OS-derived knowledge graph, if any."""
+    topology = _os_topology_probe.load_stored_topology()
+    if topology is None:
+        raise HTTPException(status_code=404, detail="dynamic topology has not been generated")
+    return topology.get("knowledge_graph") or {"nodes": [], "edges": []}
 
 
 @app.get("/system/status")
@@ -403,6 +438,7 @@ def system_status() -> dict:
             "intentValidatorEnabled": True,
         },
         "eventIngest": _event_ingest_worker.status(),
+        "osTopologyProbe": _os_topology_probe.status(),
         "auditFile": {
             "enabled": _audit_logger.enabled,
             "directory": _scrub_home(str(_audit_logger.directory)),

@@ -22,6 +22,7 @@ to exercise the service in isolation.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -30,6 +31,7 @@ from typing import Any, Optional
 # ---------------------------------------------------------------------------
 
 DEFAULT_TOPOLOGY_PATH: Path = Path(__file__).parent / "topology.json"
+DEFAULT_DYNAMIC_TOPOLOGY_PATH: Path = Path(__file__).parent / "topology.dynamic.json"
 
 # Hard cap on enumerated paths to prevent combinatorial explosion in dense
 # graphs. Returned result advertises ``truncated=True`` when the cap is hit.
@@ -69,16 +71,33 @@ class AssetNotFoundError(TopologyError):
 # ---------------------------------------------------------------------------
 
 _default_topology: Optional[dict[str, Any]] = None
+_default_topology_source: Optional[Path] = None
+_default_topology_mtime: Optional[float] = None
 _adjacency_cache: dict[int, dict[str, list[tuple[str, dict[str, Any]]]]] = {}
+
+
+def _default_topology_candidate_path() -> Path:
+    env_path = os.environ.get("DYNAMIC_TOPOLOGY_PATH")
+    dynamic_path = Path(env_path) if env_path else DEFAULT_DYNAMIC_TOPOLOGY_PATH
+    return dynamic_path if dynamic_path.exists() else DEFAULT_TOPOLOGY_PATH
 
 
 def _resolve_topology(topology: Optional[dict[str, Any]]) -> dict[str, Any]:
     """Return ``topology`` if given, otherwise the lazily-loaded default."""
-    global _default_topology
+    global _default_topology, _default_topology_source, _default_topology_mtime
     if topology is not None:
         return topology
-    if _default_topology is None:
-        _default_topology = load_topology()
+    target = _default_topology_candidate_path()
+    target_mtime = target.stat().st_mtime if target.exists() else None
+    if (
+        _default_topology is None
+        or _default_topology_source != target
+        or _default_topology_mtime != target_mtime
+    ):
+        _default_topology = load_topology(target)
+        _default_topology_source = target
+        _default_topology_mtime = target_mtime
+        _adjacency_cache.clear()
     return _default_topology
 
 
@@ -192,11 +211,20 @@ def load_topology(path: Path | str | None = None) -> dict[str, Any]:
         FileNotFoundError: if the file does not exist.
         json.JSONDecodeError: if the file is not valid JSON.
     """
-    target = Path(path) if path else DEFAULT_TOPOLOGY_PATH
+    if path:
+        target = Path(path)
+    else:
+        env_path = os.environ.get("DYNAMIC_TOPOLOGY_PATH")
+        dynamic_path = Path(env_path) if env_path else DEFAULT_DYNAMIC_TOPOLOGY_PATH
+        target = dynamic_path if dynamic_path.exists() else DEFAULT_TOPOLOGY_PATH
     if not target.exists():
         raise FileNotFoundError(f"topology file not found: {target}")
     with target.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+    data.setdefault("metadata", {})
+    data["metadata"].setdefault("loadedFrom", str(target))
+    data["metadata"].setdefault("dynamic", target.resolve() != DEFAULT_TOPOLOGY_PATH.resolve())
+    return data
 
 
 def get_topology(topology: Optional[dict[str, Any]] = None) -> dict[str, Any]:
@@ -206,8 +234,11 @@ def get_topology(topology: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
 def reload_default_topology() -> dict[str, Any]:
     """Force-reload the default topology from disk and clear adjacency cache."""
-    global _default_topology
-    _default_topology = load_topology()
+    global _default_topology, _default_topology_source, _default_topology_mtime
+    target = _default_topology_candidate_path()
+    _default_topology = load_topology(target)
+    _default_topology_source = target
+    _default_topology_mtime = target.stat().st_mtime if target.exists() else None
     _adjacency_cache.clear()
     return _default_topology
 
